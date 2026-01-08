@@ -41,7 +41,7 @@ Try the full-featured version at **[freevideotoaudio.com](https://freevideotoaud
 
 ```bash
 # Clone the repository
-git clone https://github.com/nicekate/video-audio-converter.git
+git clone https://github.com/guyfar/video-audio-converter.git
 cd video-audio-converter
 
 # Install dependencies
@@ -77,7 +77,7 @@ MIT License - feel free to use this in your own projects!
 ## Links
 
 - **Full Version**: [freevideotoaudio.com](https://freevideotoaudio.com)
-- **Issues**: [GitHub Issues](https://github.com/nicekate/video-audio-converter/issues)
+- **Issues**: [GitHub Issues](https://github.com/guyfar/video-audio-converter/issues)
 
 ## Contributing
 
