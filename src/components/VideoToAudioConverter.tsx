@@ -2,7 +2,6 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile } from "@ffmpeg/util";
 
 type ConversionStatus = "idle" | "loading" | "ready" | "converting" | "done" | "error";
 
@@ -61,17 +60,7 @@ function estimateConversionTime(fileSize: number): string {
   return `~${minutes}min`;
 }
 
-interface VideoToAudioConverterProps {
-  defaultFormat?: 'mp3' | 'wav' | 'aac' | 'ogg' | 'flac';
-}
-
-export default function VideoToAudioConverter({
-  defaultFormat = 'mp3'
-}: VideoToAudioConverterProps) {
-  const getDefaultFormat = () => {
-    return AUDIO_FORMATS.find(f => f.id === defaultFormat) || AUDIO_FORMATS[0];
-  };
-
+export default function VideoToAudioConverter() {
   const [status, setStatus] = useState<ConversionStatus>("idle");
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -79,10 +68,8 @@ export default function VideoToAudioConverter({
   const [fileName, setFileName] = useState<string>("");
   const [fileInfo, setFileInfo] = useState<FileInfo | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedFormat, setSelectedFormat] = useState<AudioFormat>(getDefaultFormat());
+  const [selectedFormat, setSelectedFormat] = useState<AudioFormat>(AUDIO_FORMATS[0]);
   const [videoDuration, setVideoDuration] = useState<number>(0);
-  const [trimStart, setTrimStart] = useState<number>(0);
-  const [trimEnd, setTrimEnd] = useState<number>(0);
   const [outputSize, setOutputSize] = useState<number>(0);
   const [currentFile, setCurrentFile] = useState<File | null>(null);
   const [hasAudioTrack, setHasAudioTrack] = useState<boolean>(true);
@@ -92,7 +79,6 @@ export default function VideoToAudioConverter({
   const ffmpegLoadedRef = useRef<boolean>(false);
   const ffmpegLogsRef = useRef<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
-  const timelineRef = useRef<HTMLDivElement>(null);
 
   const initLoadingSteps = useCallback((isFirstLoad: boolean) => {
     const steps: LoadingStep[] = [];
@@ -313,8 +299,6 @@ export default function VideoToAudioConverter({
       updateStepStatus("analyze", "done");
 
       setVideoDuration(duration);
-      setTrimStart(0);
-      setTrimEnd(duration);
       setFileName(file.name.replace(/\.[^/.]+$/, "") + "." + selectedFormat.extension);
       setStatus("ready");
 
@@ -337,14 +321,6 @@ export default function VideoToAudioConverter({
       const outputFileName = `output.${selectedFormat.extension}`;
 
       const args: string[] = ["-i", inputFileName];
-
-      if (trimStart > 0) {
-        args.push("-ss", trimStart.toString());
-      }
-      if (trimEnd < videoDuration) {
-        args.push("-to", trimEnd.toString());
-      }
-
       args.push("-vn");
       args.push("-acodec", selectedFormat.codec);
 
@@ -370,7 +346,7 @@ export default function VideoToAudioConverter({
       setError(errorMsg);
       setStatus("error");
     }
-  }, [currentFile, selectedFormat, trimStart, trimEnd, videoDuration]);
+  }, [currentFile, selectedFormat]);
 
   const handleFileSelect = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -429,8 +405,6 @@ export default function VideoToAudioConverter({
     setFileInfo(null);
     setCurrentFile(null);
     setVideoDuration(0);
-    setTrimStart(0);
-    setTrimEnd(0);
     setOutputSize(0);
     setHasAudioTrack(true);
     if (inputRef.current) inputRef.current.value = "";
@@ -441,52 +415,6 @@ export default function VideoToAudioConverter({
       setFileName(currentFile.name.replace(/\.[^/.]+$/, "") + "." + selectedFormat.extension);
     }
   }, [selectedFormat, currentFile]);
-
-  const handleTimelineDrag = useCallback((
-    e: React.MouseEvent | React.TouchEvent,
-    type: "start" | "end"
-  ) => {
-    e.preventDefault();
-    const timeline = timelineRef.current;
-    if (!timeline) return;
-
-    const getClientX = (event: MouseEvent | TouchEvent): number => {
-      if ("touches" in event) {
-        return event.touches[0]?.clientX ?? 0;
-      }
-      return event.clientX;
-    };
-
-    const updatePosition = (clientX: number) => {
-      const rect = timeline.getBoundingClientRect();
-      const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
-      const percent = x / rect.width;
-      const time = percent * videoDuration;
-
-      if (type === "start") {
-        setTrimStart(Math.min(time, trimEnd - 1));
-      } else {
-        setTrimEnd(Math.max(time, trimStart + 1));
-      }
-    };
-
-    const handleMove = (moveEvent: MouseEvent | TouchEvent) => {
-      moveEvent.preventDefault();
-      updatePosition(getClientX(moveEvent));
-    };
-
-    const handleEnd = () => {
-      document.removeEventListener("mousemove", handleMove);
-      document.removeEventListener("mouseup", handleEnd);
-      document.removeEventListener("touchmove", handleMove);
-      document.removeEventListener("touchend", handleEnd);
-    };
-
-    document.addEventListener("mousemove", handleMove, { passive: false });
-    document.addEventListener("mouseup", handleEnd);
-    document.addEventListener("touchmove", handleMove, { passive: false });
-    document.addEventListener("touchend", handleEnd);
-  }, [videoDuration, trimStart, trimEnd]);
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -665,52 +593,6 @@ export default function VideoToAudioConverter({
                 ))}
               </div>
             </div>
-
-            {/* Trim Timeline */}
-            {videoDuration > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Trim Audio
-                </label>
-                <div className="space-y-3">
-                  <div
-                    ref={timelineRef}
-                    className="relative h-12 bg-gray-200 dark:bg-gray-600 rounded-lg cursor-pointer overflow-hidden"
-                  >
-                    <div
-                      className="absolute top-0 h-full bg-blue-500/30"
-                      style={{
-                        left: `${(trimStart / videoDuration) * 100}%`,
-                        width: `${((trimEnd - trimStart) / videoDuration) * 100}%`,
-                      }}
-                    />
-                    <div
-                      className="absolute top-0 h-full w-6 bg-blue-600 cursor-ew-resize flex items-center justify-center hover:bg-blue-700 active:bg-blue-800 transition-colors touch-none"
-                      style={{ left: `calc(${(trimStart / videoDuration) * 100}% - 12px)` }}
-                      onMouseDown={(e) => handleTimelineDrag(e, "start")}
-                      onTouchStart={(e) => handleTimelineDrag(e, "start")}
-                    >
-                      <div className="w-1 h-6 bg-white rounded-full" />
-                    </div>
-                    <div
-                      className="absolute top-0 h-full w-6 bg-blue-600 cursor-ew-resize flex items-center justify-center hover:bg-blue-700 active:bg-blue-800 transition-colors touch-none"
-                      style={{ left: `calc(${(trimEnd / videoDuration) * 100}% - 12px)` }}
-                      onMouseDown={(e) => handleTimelineDrag(e, "end")}
-                      onTouchStart={(e) => handleTimelineDrag(e, "end")}
-                    >
-                      <div className="w-1 h-6 bg-white rounded-full" />
-                    </div>
-                  </div>
-                  <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400">
-                    <span>Start: {formatTime(trimStart)}</span>
-                    <span className="text-blue-600 dark:text-blue-400 font-medium">
-                      Duration: {formatTime(trimEnd - trimStart)}
-                    </span>
-                    <span>End: {formatTime(trimEnd)}</span>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* No Audio Warning */}
             {!hasAudioTrack && (

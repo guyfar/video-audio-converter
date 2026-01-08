@@ -6,7 +6,6 @@ A free, open-source video to audio converter that runs entirely in your browser.
 
 - **100% Privacy**: All processing happens locally in your browser using WebAssembly
 - **Multiple Formats**: Convert to MP3, WAV, AAC, OGG, or FLAC
-- **Audio Trimming**: Select specific portions of the video to extract
 - **No Limits**: No file size restrictions, no conversion limits
 - **No Registration**: Start converting immediately, no account needed
 - **Dark Mode**: Automatic dark mode support based on system preferences
